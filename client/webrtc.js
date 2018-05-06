@@ -12,6 +12,8 @@ let isOffer = false;
  * mediaを取得する
  */
 function startVideo() {
+    // constraints: ここで解像度(の範囲)を決めることもできる
+    // ハウリング対策のため、audioをfalseにしてます。
     const mediaConstraints = { video: true, audio: false };
     navigator.mediaDevices.getUserMedia(mediaConstraints)
         .then(function (stream) {
@@ -136,6 +138,7 @@ function prepareNewConnection(isOffer) {
         console.log('Adding local stream...');
         localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
     } else {
+        // この場合、localのstreamがないため、通信できるSDPが生成されない
         console.warn('no local stream, but continue.');
     }
 
