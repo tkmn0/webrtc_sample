@@ -8,7 +8,9 @@ let negotiationneededCounter = 0;
 let isOffer = false;
 
 // ---- ボタンのアクション--- 
-// mediaを取得する
+/**
+ * mediaを取得する
+ */
 function startVideo() {
     const mediaConstraints = { video: true, audio: false };
     navigator.mediaDevices.getUserMedia(mediaConstraints)
@@ -20,14 +22,70 @@ function startVideo() {
             console.log('error: ' + error);
         });
 }
-
-// Videoの再生を開始する
+/**
+ * Videoの再生を開始する
+ * @param {any} element html video/audio element
+ * @param {any} stream video/audio stream
+ */
 function playVideo(element, stream) {
     element.srcObject = stream;
     element.play();
 }
+/**
+ * P2P通信を切断する
+ */
+function hangUp() {
+    if (peerConnection) {
+        if (peerConnection.iceConnectionState !== 'closed') {
+            peerConnection.close();
+            peerConnection = null;
+            negotiationneededCounter = 0;
+            cleanupVideoElement(remoteVideo);
+            textForSendSdp.value = '';
+            return;
+        }
+    }
+    console.log('peerConnection is closed.');
+}
+/**
+ * ビデオエレメントを初期化する
+ * 
+ * @param {document.element} element 
+ */
+function cleanupVideoElement(element) {
+    element.pause();
+    element.srcObject = null;
+}
+/**
+ * Receive remote SDPボタンが押されたらOffer側とAnswer側で処理を分岐
+ */
+function onSdpText() {
+    const text = textToReceiveSdp.value;
+    if (peerConnection) {
+        console.log('Received answer text...');
+        const answer = new RTCSessionDescription({
+            type: 'answer',
+            sdp: text,
+        });
+        setAnswer(answer);
+    }
+    else {
+        console.log('Received offer text...');
+        const offer = new RTCSessionDescription({
+            type: 'offer',
+            sdp: text,
+        });
+        setOffer(offer);
+    }
+    textToReceiveSdp.value = '';
+}
 
-// WebRTCを利用する準備をする
+/** WebRTC handling **/
+/**
+ * WebRTCを利用する準備をする
+ * @param {any} isOffer 
+ * @returns RTCPeerConnection with callback events
+ */
 function prepareNewConnection(isOffer) {
     // Googleが公開しているSTUNサーバーをしていする
     const pc_config = { "iceServers": [{ "urls": "stun:stun.webrtc.ecl.ntt.com:3478" }] };
@@ -82,7 +140,10 @@ function prepareNewConnection(isOffer) {
     return peer;
 }
 
-// 手動シグナリングのための処理を追加する
+/**
+ * 手動シグナリングのための処理を追加する
+ * @param {RTCSessionDescription} sessionDescription 
+ */
 function sendSdp(sessionDescription) {
     console.log('---sending sdp ---');
     textForSendSdp.value = sessionDescription.sdp;
@@ -90,7 +151,9 @@ function sendSdp(sessionDescription) {
     textForSendSdp.select();
 }
 
-// Connectボタンが押されたらWebRTCのOffer処理を開始
+/**
+ * Connectボタンが押されたらWebRTCのOffer処理を開始
+ */
 function connect() {
     if (!peerConnection) {
         console.log('make Offer');
@@ -101,7 +164,9 @@ function connect() {
     }
 }
 
-// Answer SDPを生成する
+/**
+ * Answer SDPを生成する
+ */
 function makeAnswer() {
     console.log('sending Answer. Creating remote session description...');
     if (!peerConnection) {
@@ -124,7 +189,10 @@ function makeAnswer() {
         });
 }
 
-// Offer SDPを作成する
+/**
+ * Offer SDPを作成する
+ * @param {RTCPeerConnection} peer RTCPeerConnection
+ */
 function makeOffer(peer) {
     peer.createOffer()
         .then(function (sessionDescription) {
@@ -143,29 +211,10 @@ function makeOffer(peer) {
         });
 }
 
-// Receive remote SDPボタンが押されたらOffer側とAnswer側で処理を分岐
-function onSdpText() {
-    const text = textToReceiveSdp.value;
-    if (peerConnection) {
-        console.log('Received answer text...');
-        const answer = new RTCSessionDescription({
-            type: 'answer',
-            sdp: text,
-        });
-        setAnswer(answer);
-    }
-    else {
-        console.log('Received offer text...');
-        const offer = new RTCSessionDescription({
-            type: 'offer',
-            sdp: text,
-        });
-        setOffer(offer);
-    }
-    textToReceiveSdp.value = '';
-}
-
-// Offer側のSDPをセットする処理
+/**
+ * Offer側のSDPをセットする処理
+ * @param {RTCSessionDescription} sessionDescription 
+ */
 function setOffer(sessionDescription) {
     if (peerConnection) {
         console.error('peerConnection already exist!');
@@ -181,7 +230,11 @@ function setOffer(sessionDescription) {
         });
 }
 
-// Answer側のSDPをセットする場合
+/**
+ * Answer側のSDPをセットする場合
+ * @param {RTCSessionDescription} sessionDescription 
+ * @returns 
+ */
 function setAnswer(sessionDescription) {
     if (!peerConnection) {
         console.error('peerConnection NOT exist!');
@@ -196,23 +249,3 @@ function setAnswer(sessionDescription) {
         });
 }
 
-// P2P通信を切断する
-function hangUp() {
-    if (peerConnection) {
-        if (peerConnection.iceConnectionState !== 'closed') {
-            peerConnection.close();
-            peerConnection = null;
-            negotiationneededCounter = 0;
-            cleanupVideoElement(remoteVideo);
-            textForSendSdp.value = '';
-            return;
-        }
-    }
-    console.log('peerConnection is closed.');
-}
-
-// ビデオエレメントを初期化する
-function cleanupVideoElement(element) {
-    element.pause();
-    element.srcObject = null;
-}
