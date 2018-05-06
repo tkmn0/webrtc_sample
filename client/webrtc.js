@@ -7,6 +7,10 @@ let peerConnection = null;
 let negotiationneededCounter = 0;
 let isOffer = false;
 
+// シグナリングサーバーの設定
+const wsURL = 'ws://ec2-13-114-44-110.ap-northeast-1.compute.amazonaws.com:3001/'
+const ws = new WebSocket(wsURL);
+
 //** ボタンのアクション **// 
 /**
  * mediaを取得する
@@ -59,29 +63,49 @@ function cleanupVideoElement(element) {
     element.pause();
     element.srcObject = null;
 }
-/**
- * Receive remote SDPボタンが押されたらOffer側とAnswer側で処理を分岐
- */
-function onSdpText() {
-    const text = textToReceiveSdp.value;
-    if (peerConnection) {
-        console.log('Received answer text...');
-        const answer = new RTCSessionDescription({
-            type: 'answer',
-            sdp: text,
-        });
-        setAnswer(answer);
+
+/** WebSocket handling ***/
+ws.onopen = (evt) => {
+    console.log('ws open()');
+};
+ws.onerror = (err) => {
+    console.error('ws onerror() ERR:', err);
+};
+ws.onmessage = (evt) => {
+    console.log('ws onmessage() data:', evt.data);
+    const message = JSON.parse(evt.data);
+    console.log('recieved message: ' + message.type);
+    switch (message.type) {
+        case 'offer': {
+            console.log('Received offer ...');
+            textToReceiveSdp.value = message.sdp;
+            setOffer(message);
+            break;
+        }
+        case 'answer': {
+            console.log('Received answer ...');
+            textToReceiveSdp.value = message.sdp;
+            setAnswer(message);
+            break;
+        }
+        case 'candidate': {
+            console.log('Received ICE candidate ...');
+            const candidate = new RTCIceCandidate(message.ice);
+            console.log(candidate);
+            addIceCandidate(candidate);
+            break;
+        }
+        case 'close': {
+            console.log('peer is closed ...');
+            hangUp();
+            break;
+        }
+        default: {
+            console.log("Invalid message");
+            break;
+        }
     }
-    else {
-        console.log('Received offer text...');
-        const offer = new RTCSessionDescription({
-            type: 'offer',
-            sdp: text,
-        });
-        setOffer(offer);
-    }
-    textToReceiveSdp.value = '';
-}
+};
 
 /** WebRTC handling **/
 /**
@@ -104,10 +128,12 @@ function prepareNewConnection(isOffer) {
     // ICE Candidateを収集したときのイベント
     peer.onicecandidate = evt => {
         if (evt.candidate) {
+            // Trickle ICE
             console.log(evt.candidate);
+            sendICECandidate(evt.candidate);
         } else {
+            // Vanilla ICE
             console.log('empty ice event');
-            sendSdp(peer.localDescription);
         }
     };
 
@@ -145,15 +171,27 @@ function prepareNewConnection(isOffer) {
     return peer;
 }
 
+//** SDP/ICE sending */
 /**
- * 手動シグナリングのための処理を追加する
+ * WebSocket経由でSDPを送る
  * @param {RTCSessionDescription} sessionDescription 
  */
 function sendSdp(sessionDescription) {
     console.log('---sending sdp ---');
     textForSendSdp.value = sessionDescription.sdp;
-    textForSendSdp.focus();
-    textForSendSdp.select();
+    const message = JSON.stringify(sessionDescription);
+    console.log('sending SDP=' + message);
+    ws.send(message);
+}
+/**
+ * WebSocket経由でICECandidateを送る
+ * @param {RTCIceCandidate} candidate 
+ */
+function sendICECandidate(candidate) {
+    console.log('---sending ICE candidate ---');
+    const message = JSON.stringify({ type: 'candidate', ice: candidate });
+    console.log('sending candidate=' + message);
+    ws.send(message);
 }
 
 /**
@@ -169,6 +207,7 @@ function connect() {
     }
 }
 
+/** make SDP **/
 /**
  * Answer SDPを生成する
  */
@@ -193,7 +232,6 @@ function makeAnswer() {
             console.log('error to create answer: ' + error);
         });
 }
-
 /**
  * Offer SDPを作成する
  * @param {RTCPeerConnection} peer RTCPeerConnection
@@ -216,13 +254,15 @@ function makeOffer(peer) {
         });
 }
 
+/** set SDP **/
 /**
  * Offer側のSDPをセットする処理
  * @param {RTCSessionDescription} sessionDescription 
  */
 function setOffer(sessionDescription) {
     if (peerConnection) {
-        console.error('peerConnection already exist!');
+        console.log('peerConnection already exist!');
+        return;
     }
     peerConnection = prepareNewConnection(false);
     peerConnection.setRemoteDescription(sessionDescription)
@@ -234,7 +274,6 @@ function setOffer(sessionDescription) {
             console.error('setRemoteDescription(offer) ERROR: ', err);
         });
 }
-
 /**
  * Answer側のSDPをセットする場合
  * @param {RTCSessionDescription} sessionDescription 
@@ -250,6 +289,21 @@ function setAnswer(sessionDescription) {
             console.log('setRemoteDescription(answer) succsess in promise');
         })
         .catch(function (error) {
-            console.error('setRemoteDescription(answer) ERROR: ', err);
+            console.error('setRemoteDescription(answer) ERROR: ', error);
         });
+}
+
+//** add ICE **/
+/**
+ * ICE candaidate受信時にセットする
+ * @param {RTCIceCandidate} candidate 
+ */
+function addIceCandidate(candidate) {
+    if (peerConnection) {
+        peerConnection.addIceCandidate(candidate);
+    }
+    else {
+        console.error('PeerConnection not exist!');
+        return;
+    }
 }
