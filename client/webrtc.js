@@ -91,6 +91,7 @@ function prepareNewConnection(isOffer) {
     const pc_config = { "iceServers": [{ "urls": "stun:stun.webrtc.ecl.ntt.com:3478" }] };
     const peer = new RTCPeerConnection(pc_config);
 
+    // MARK: peerconnectionのコールバックを設定 
     // リモートのMediStreamTrackを受信した時
     peer.ontrack = evt => {
         console.log('-- peer.ontrack()');
@@ -248,4 +249,3 @@ function setAnswer(sessionDescription) {
             console.error('setRemoteDescription(answer) ERROR: ', err);
         });
 }
-
