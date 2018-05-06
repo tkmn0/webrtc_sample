@@ -17,6 +17,7 @@ function startVideo() {
         .then(function (stream) {
             localStream = stream;
             playVideo(localVideo, stream);
+
         })
         .catch(function (error) {
             console.log('error: ' + error);
@@ -24,8 +25,8 @@ function startVideo() {
 }
 /**
  * Videoの再生を開始する
- * @param {any} element html video/audio element
- * @param {any} stream video/audio stream
+ * @param {HTMLMediaElement} element html video/audio element
+ * @param {MediaStream} stream video/audio stream
  */
 function playVideo(element, stream) {
     element.srcObject = stream;
@@ -50,7 +51,7 @@ function hangUp() {
 /**
  * ビデオエレメントを初期化する
  * 
- * @param {document.element} element 
+ * @param {HTMLMediaElement} element 
  */
 function cleanupVideoElement(element) {
     element.pause();
@@ -83,7 +84,7 @@ function onSdpText() {
 /** WebRTC handling **/
 /**
  * WebRTCを利用する準備をする
- * @param {any} isOffer 
+ * @param {boolean} isOffer 
  * @returns RTCPeerConnection with callback events
  */
 function prepareNewConnection(isOffer) {
