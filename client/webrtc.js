@@ -7,7 +7,7 @@ let peerConnection = null;
 let negotiationneededCounter = 0;
 let isOffer = false;
 
-// ---- ボタンのアクション--- 
+//** ボタンのアクション **// 
 /**
  * mediaを取得する
  */
