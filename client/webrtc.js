@@ -2,6 +2,7 @@ const localVideo = document.getElementById('local_video');
 const remoteVideo = document.getElementById('remote_video');
 const textForSendSdp = document.getElementById('text_for_send_sdp');
 const textToReceiveSdp = document.getElementById('text_for_receive_sdp');
+const roomIDInputField = document.getElementById('room_id');
 let localStream = null;
 let peerConnection = null;
 let negotiationneededCounter = 0;
@@ -93,6 +94,11 @@ ws.onmessage = (evt) => {
             const candidate = new RTCIceCandidate(message.ice);
             console.log(candidate);
             addIceCandidate(candidate);
+            break;
+        }
+        case 'room': {
+            console.log('Received Room id ...');
+            roomIDInputField.value = message.id;
             break;
         }
         case 'close': {
@@ -199,6 +205,8 @@ function sendICECandidate(candidate) {
  */
 function connect() {
     if (!peerConnection) {
+        //prepare room id
+        ws.send(JSON.stringify({type: 'roomID', id: roomIDInputField.value}));
         console.log('make Offer');
         peerConnection = prepareNewConnection(true);
     }
